@@ -5,8 +5,9 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/thamesblanq/healthconnect/internal/security/ports"
 	"github.com/thamesblanq/healthconnect/internal/user/domain"
-	"github.com/thamesblanq/healthconnect/internal/user/ports"
+	userports "github.com/thamesblanq/healthconnect/internal/user/ports"
 )
 
 type RegisterUserInput struct {
@@ -15,12 +16,12 @@ type RegisterUserInput struct {
 }
 
 type RegisterUserUseCase struct {
-	userRepository ports.UserRepository
+	userRepository userports.UserRepository
 	passwordHasher ports.PasswordHasher
 }
 
 func NewRegisterUserUseCase(
-	userRepository ports.UserRepository,
+	userRepository userports.UserRepository,
 	passwordHasher ports.PasswordHasher,
 ) *RegisterUserUseCase {
 	return &RegisterUserUseCase{
@@ -41,15 +42,15 @@ func (uc *RegisterUserUseCase) Execute(
 	if email == "" {
 		return nil, ErrEmailRequired
 	}
-
+	//email validation using net/mail package
 	if _, err := mail.ParseAddress(email); err != nil {
 		return nil, ErrInvalidEmail
 	}
-
+	//password validation
 	if input.Password == "" {
 		return nil, ErrPasswordRequired
 	}
-
+	//password length validation
 	if len(input.Password) < 8 {
 		return nil, ErrPasswordTooShort
 	}

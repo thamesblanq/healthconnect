@@ -5,8 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/thamesblanq/healthconnect/internal/security/ports"
 	"github.com/thamesblanq/healthconnect/internal/user/domain"
-	"github.com/thamesblanq/healthconnect/internal/user/ports"
+	userports "github.com/thamesblanq/healthconnect/internal/user/ports"
 )
 
 // --------------------------------------------------
@@ -64,7 +65,7 @@ func (f *fakeUserRepository) FindByID(
 }
 
 // Make sure the fake implements the repository port.
-var _ ports.UserRepository = (*fakeUserRepository)(nil)
+var _ userports.UserRepository = (*fakeUserRepository)(nil)
 
 // --------------------------------------------------
 // Fake Password Hasher

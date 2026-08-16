@@ -4,13 +4,19 @@ import (
 	"log"
 	"net/http"
 
+	authadapters "github.com/thamesblanq/healthconnect/internal/auth/adapters"
+	jwtadapter "github.com/thamesblanq/healthconnect/internal/auth/adapters/jwt"
+	authapplication "github.com/thamesblanq/healthconnect/internal/auth/application"
+	authhandlers "github.com/thamesblanq/healthconnect/internal/auth/handlers"
+
 	"github.com/thamesblanq/healthconnect/internal/config"
 	"github.com/thamesblanq/healthconnect/internal/database"
 
-	"github.com/thamesblanq/healthconnect/internal/user/adapters/argon2"
-	"github.com/thamesblanq/healthconnect/internal/user/adapters/postgres"
-	"github.com/thamesblanq/healthconnect/internal/user/application"
-	"github.com/thamesblanq/healthconnect/internal/user/handlers"
+	"github.com/thamesblanq/healthconnect/internal/security/adapters/argon2"
+
+	userpostgres "github.com/thamesblanq/healthconnect/internal/user/adapters/postgres"
+	userapplication "github.com/thamesblanq/healthconnect/internal/user/application"
+	userhandlers "github.com/thamesblanq/healthconnect/internal/user/handlers"
 )
 
 func main() {
@@ -39,25 +45,50 @@ func main() {
 	// 3. Create adapters
 	// --------------------------------------------------
 
-	userRepository := postgres.NewUserRepository(db)
+	userRepository := userpostgres.NewUserRepository(db)
 
 	passwordHasher := argon2.NewPasswordHasher()
+
+	userProvider := authadapters.NewUserProvider(userRepository)
+
+	tokenGenerator := jwtadapter.NewTokenGenerator(
+		cfg.JWTSecret,
+		cfg.JWTExpiration,
+	)
+
+	tokenVerifier := jwtadapter.NewTokenVerifier(
+		cfg.JWTSecret,
+	)
 
 	// --------------------------------------------------
 	// 4. Create application use cases
 	// --------------------------------------------------
 
-	registerUserUseCase := application.NewRegisterUserUseCase(
+	registerUserUseCase := userapplication.NewRegisterUserUseCase(
 		userRepository,
 		passwordHasher,
 	)
 
-	// Prevent the compiler from complaining while we
-	// haven't created the HTTP handler yet.
-	userHandler := handlers.NewHandler(registerUserUseCase)
+	loginUserUseCase := authapplication.NewLoginUserUseCase(
+		userProvider,
+		passwordHasher,
+		tokenGenerator,
+	)
 
 	// --------------------------------------------------
-	// 5. HTTP server
+	// 5. Create HTTP handlers
+	// --------------------------------------------------
+
+	userHandler := userhandlers.NewHandler(registerUserUseCase)
+
+	authHandler := authhandlers.NewHandler(loginUserUseCase)
+
+	authMiddleware := authhandlers.NewAuthMiddleware(
+		tokenVerifier,
+	)
+
+	// --------------------------------------------------
+	// 6. HTTP server
 	// --------------------------------------------------
 
 	mux := http.NewServeMux()
@@ -66,7 +97,19 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("HealthConnect API is running"))
 	})
+
+	// User routes
 	mux.HandleFunc("/users", userHandler.RegisterUser)
+
+	// Auth routes
+	mux.HandleFunc("/auth/login", authHandler.Login)
+
+	mux.Handle(
+		"/users/me",
+		authMiddleware.RequireAuth(
+			http.HandlerFunc(userHandler.GetMe),
+		),
+	)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

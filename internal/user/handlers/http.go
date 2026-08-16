@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	authhandlers "github.com/thamesblanq/healthconnect/internal/auth/handlers"
 	"github.com/thamesblanq/healthconnect/internal/user/application"
 )
 
@@ -134,6 +135,32 @@ func handleRegisterUserError(w http.ResponseWriter, err error) {
 			http.StatusInternalServerError,
 			"internal server error",
 		)
+	}
+}
+
+func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authhandlers.UserClaimsFromContext(r.Context())
+
+	if !ok {
+		http.Error(
+			w,
+			"unauthorized",
+			http.StatusUnauthorized,
+		)
+		return
+	}
+
+	response := map[string]string{
+		"id":    claims.UserID,
+		"email": claims.Email,
+		"role":  claims.Role,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		return
 	}
 }
 

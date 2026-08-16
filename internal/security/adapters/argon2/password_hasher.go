@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/argon2"
+
+	"github.com/thamesblanq/healthconnect/internal/security/ports"
 )
 
 const (
@@ -82,7 +84,6 @@ func (h *PasswordHasher) Compare(
 		return errors.New("unsupported password hashing algorithm")
 	}
 
-	// Parse the parameters.
 	var parsedMemory uint32
 	var parsedTime uint32
 	var parsedThreads uint8
@@ -124,3 +125,6 @@ func (h *PasswordHasher) Compare(
 
 	return nil
 }
+
+// Compile-time check that PasswordHasher implements ports.PasswordHasher.
+var _ ports.PasswordHasher = (*PasswordHasher)(nil)
